@@ -90,15 +90,6 @@ python populate_database_redesigned.py
 - **numpy** - Numerical computing
 - **mysql-connector-python** - MySQL database connectivity
 
-## Deployment
-
-To deploy on Streamlit Cloud:
-
-1. Push your code to GitHub
-2. Go to [Streamlit Cloud](https://streamlit.io/cloud)
-3. Create new app and select your repository
-4. The app will automatically use the packages defined in `requirements.txt`
-
 ## Notes
 
 - Ensure database credentials are properly configured for data population scripts
