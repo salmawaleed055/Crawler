@@ -1,5 +1,7 @@
 # Data.gov Dashboard
 Dashboard link: https://crawler-4zztb6gnqzgckaslxwqhb2.streamlit.app/
+<img width="946" height="432" alt="image" src="https://github.com/user-attachments/assets/1eb1c365-167c-42e8-a956-9b45dc7b0f23" />
+
 
 An interactive Streamlit dashboard for analyzing 2,000 datasets from the data.gov API.
 
@@ -15,7 +17,7 @@ This project provides a comprehensive dashboard for exploring and analyzing data
 
 ```
 ├── dashboard.py                          # Main Streamlit dashboard application
-├── complete_pipeline.py                  # Complete data collection and processing pipeline
+├── Crawler.py                  # Complete data collection and processing pipeline
 ├── populate_database_redesigned.py       # Database population script
 ├── run_pipeline.py                       # Pipeline runner
 ├── requirements.txt                      # Python dependencies
