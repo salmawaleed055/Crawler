@@ -526,8 +526,14 @@ canvas { max-width: 220px; max-height: 220px; }
     <button class="nav-btn" onclick="navigate('by-tag')" data-section="by-tag">
       <span class="icon">◉</span> By Tag
     </button>
+    <button class="nav-btn" onclick="navigate('by-topic')" data-section="by-topic">
+      <span class="icon">⊙</span> By Topic
+    </button>
 
     <div class="nav-section">Analytics</div>
+    <button class="nav-btn" onclick="navigate('overview')" data-section="overview">
+      <span class="icon">◈</span> Overview
+    </button>
     <button class="nav-btn" onclick="navigate('top-orgs')" data-section="top-orgs">
       <span class="icon">▲</span> Top Organizations
     </button>
@@ -567,6 +573,11 @@ canvas { max-width: 220px; max-height: 220px; }
         <p>Explore, query, and analyze 2,000+ datasets from the US Government's open data portal. Powered by Aiven-hosted MySQL.</p>
       </div>
       <div class="welcome-grid">
+        <div class="welcome-card" onclick="navigate('overview')">
+          <div class="wc-icon">◈</div>
+          <div class="wc-title">Database Overview</div>
+          <div class="wc-desc">Complete statistics and metrics from all database tables</div>
+        </div>
         <div class="welcome-card" onclick="navigate('register')">
           <div class="wc-icon">✦</div>
           <div class="wc-title">Register User</div>
@@ -600,6 +611,13 @@ canvas { max-width: 220px; max-height: 220px; }
       </div>
     </div>
 
+    <!-- DATABASE OVERVIEW -->
+    <div class="section" id="section-overview">
+      <div class="section-title">Database Overview</div>
+      <div class="section-desc">Comprehensive view of all data in the database, including organizations, datasets, formats, topics, and more.</div>
+      <div id="overview-content"></div>
+    </div>
+
     <!-- REGISTER USER -->
     <div class="section" id="section-register">
       <div class="section-title">Register a User</div>
@@ -619,7 +637,6 @@ canvas { max-width: 220px; max-height: 220px; }
               <option value="Prefer not to say">Prefer not to say</option>
             </select>
           </div>
-          <div class="field"><label>Age *</label><input type="number" id="reg-age" min="1" max="120" placeholder="25"/></div>
           <div class="field"><label>Birthdate *</label><input type="date" id="reg-birthdate"/></div>
           <div class="field"><label>Country *</label><input type="text" id="reg-country" placeholder="USA"/></div>
         </div>
@@ -638,7 +655,7 @@ canvas { max-width: 220px; max-height: 220px; }
       <div class="card">
         <div class="card-title">＋ Record New Usage</div>
         <div class="form-grid">
-          <div class="field"><label>User ID *</label><input type="number" id="usage-user-id" placeholder="1"/></div>
+          <div class="field"><label>Email *</label><input type="email" id="usage-email" placeholder="user@example.com"/></div>
           <div class="field"><label>Dataset ID *</label><input type="number" id="usage-dataset-id" placeholder="42"/></div>
           <div class="field"><label>Project Name *</label><input type="text" id="usage-project-name" placeholder="Traffic Analysis 2025"/></div>
           <div class="field">
@@ -662,11 +679,11 @@ canvas { max-width: 220px; max-height: 220px; }
     <!-- VIEW USAGE -->
     <div class="section" id="section-view-usage">
       <div class="section-title">View Usage History</div>
-      <div class="section-desc">Look up all dataset usage records for a given user.</div>
+      <div class="section-desc">Look up all dataset usage records for a given user by their email.</div>
       <div class="search-row">
         <div class="field">
-          <label>User ID</label>
-          <input type="number" id="view-user-id" placeholder="Enter user ID…"/>
+          <label>Email</label>
+          <input type="email" id="view-user-email" placeholder="user@example.com"/>
         </div>
         <button class="btn btn-primary" onclick="viewUsage()">Search</button>
       </div>
@@ -680,9 +697,7 @@ canvas { max-width: 220px; max-height: 220px; }
       <div class="search-row">
         <div class="field">
           <label>Organization Type</label>
-          <select id="org-type-select">
-            <option value="">All Types</option>
-          </select>
+          <input type="text" id="org-type-input" placeholder="e.g. Federal, State, City…"/>
         </div>
         <button class="btn btn-primary" onclick="fetchByOrgType()">Filter</button>
       </div>
@@ -717,6 +732,20 @@ canvas { max-width: 220px; max-height: 220px; }
         <button class="btn btn-primary" onclick="fetchByTag()">Search</button>
       </div>
       <div id="tag-results"></div>
+    </div>
+
+    <!-- BY TOPIC -->
+    <div class="section" id="section-by-topic">
+      <div class="section-title">Datasets by Topic</div>
+      <div class="section-desc">Find all datasets grouped under a specific topic area.</div>
+      <div class="search-row">
+        <div class="field">
+          <label>Topic</label>
+          <input type="text" id="topic-input" placeholder="e.g. health, climate, agriculture…"/>
+        </div>
+        <button class="btn btn-primary" onclick="fetchByTopic()">Search</button>
+      </div>
+      <div id="topic-results"></div>
     </div>
 
     <!-- TOP ORGS -->
@@ -779,9 +808,9 @@ canvas { max-width: 220px; max-height: 220px; }
 const API = '';  // same origin
 
 const SECTION_TITLES = {
-  'home': 'Dashboard', 'register': 'Register User', 'add-usage': 'Add Dataset Usage',
+  'home': 'Dashboard', 'overview': 'Database Overview', 'register': 'Register User', 'add-usage': 'Add Dataset Usage',
   'view-usage': 'View My Usage', 'by-org-type': 'By Organization Type',
-  'by-format': 'By Format', 'by-tag': 'By Tag', 'top-orgs': 'Top Organizations',
+  'by-format': 'By Format', 'by-tag': 'By Tag', 'by-topic': 'By Topic', 'top-orgs': 'Top Organizations',
   'top-datasets': 'Top Datasets', 'totals': 'Dataset Totals',
   'usage-dist': 'Usage Distribution', 'top-tags': 'Tags by Project Type'
 };
@@ -797,7 +826,7 @@ function navigate(section) {
 }
 
 function onSectionLoad(section) {
-  if (section === 'by-org-type') loadOrgTypes();
+  if (section === 'overview') loadDashboardOverview();
   if (section === 'by-format') loadFormats();
   if (section === 'top-orgs') loadTopOrgs();
   if (section === 'top-datasets') loadTopDatasets();
@@ -873,13 +902,90 @@ function showAlert(id, msg, type='success') {
 // ─── LOADING ───
 function loading() { return `<div class="loading"><div class="spinner"></div>Loading…</div>`; }
 
+// ─── DATABASE OVERVIEW ───
+async function loadDashboardOverview() {
+  const el = document.getElementById('overview-content');
+  if (el.dataset.loaded) return;
+  el.innerHTML = loading();
+  
+  const data = await get('/api/dashboard/overview').catch(() => null);
+  if (!data) {
+    el.innerHTML = `<div class="alert alert-error show">Failed to load overview</div>`;
+    return;
+  }
+  
+  const t = data.totals;
+  let html = `
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value">${t.organizations}</div>
+        <div class="stat-label">Organizations</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${t.datasets}</div>
+        <div class="stat-label">Datasets</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${t.users}</div>
+        <div class="stat-label">Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">${t.tags}</div>
+        <div class="stat-label">Tags</div>
+      </div>
+    </div>
+  `;
+  
+  // Organizations
+  if (data.top_organizations && data.top_organizations.length > 0) {
+    html += `<div class="card">
+      <div class="card-title">🏢 Organizations</div>
+      <div class="rank-list">${data.top_organizations.map((o,i) => `
+        <div class="rank-item">
+          <div class="rank-num">${i+1}</div>
+          <div class="rank-info">
+            <div class="rank-name">${o.OrganizationName || 'N/A'}</div>
+            <div class="rank-meta">${o.OrganizationType || 'Unknown'}</div>
+          </div>
+        </div>
+      `).join('')}</div>
+    </div>`;
+  }
+  
+  // Formats
+  if (data.formats && data.formats.length > 0) {
+    html += `<div class="card">
+      <div class="card-title">◈ File Formats</div>
+      ${renderBar(data.formats, 'Format', 'cnt', 'gold')}
+    </div>`;
+  }
+  
+  // Topics
+  if (data.topics && data.topics.length > 0) {
+    html += `<div class="card">
+      <div class="card-title">⌗ Topics</div>
+      ${renderBar(data.topics, 'TopicName', 'cnt', 'teal')}
+    </div>`;
+  }
+  
+  // Organization Types
+  if (data.organization_types && data.organization_types.length > 0) {
+    html += `<div class="card">
+      <div class="card-title">≡ Organization Types</div>
+      ${renderBar(data.organization_types, 'OrganizationType', 'cnt', 'rust')}
+    </div>`;
+  }
+  
+  el.innerHTML = html;
+  el.dataset.loaded = '1';
+}
+
 // ─── 1. REGISTER USER ───
 async function registerUser() {
   const payload = {
     email: document.getElementById('reg-email').value.trim(),
     username: document.getElementById('reg-username').value.trim(),
     gender: document.getElementById('reg-gender').value,
-    age: parseInt(document.getElementById('reg-age').value),
     birthdate: document.getElementById('reg-birthdate').value,
     country: document.getElementById('reg-country').value.trim()
   };
@@ -888,8 +994,8 @@ async function registerUser() {
     if (data.error) {
       showAlert('reg-error', '✗ ' + data.error, 'error');
     } else {
-      showAlert('reg-success', `✓ User registered! ID: ${data.user_id}`);
-      ['reg-email','reg-username','reg-age','reg-birthdate','reg-country'].forEach(id => document.getElementById(id).value = '');
+      showAlert('reg-success', `✓ ${data.message}! Email: ${data.email}`);
+      ['reg-email','reg-username','reg-birthdate','reg-country'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('reg-gender').value = '';
     }
   } catch(e) { showAlert('reg-error', '✗ Connection error', 'error'); }
@@ -898,7 +1004,7 @@ async function registerUser() {
 // ─── 2. ADD USAGE ───
 async function addUsage() {
   const payload = {
-    user_id: parseInt(document.getElementById('usage-user-id').value),
+    email: document.getElementById('usage-email').value.trim(),
     dataset_id: parseInt(document.getElementById('usage-dataset-id').value),
     project_name: document.getElementById('usage-project-name').value.trim(),
     project_category: document.getElementById('usage-category').value
@@ -908,50 +1014,51 @@ async function addUsage() {
     if (data.error) {
       showAlert('usage-error', '✗ ' + data.error, 'error');
     } else {
-      showAlert('usage-success', `✓ Usage recorded! ID: ${data.usage_id}`);
+      showAlert('usage-success', `✓ ${data.message}!`);
+      document.getElementById('usage-email').value = '';
+      document.getElementById('usage-dataset-id').value = '';
+      document.getElementById('usage-project-name').value = '';
+      document.getElementById('usage-category').value = '';
     }
   } catch(e) { showAlert('usage-error', '✗ Connection error', 'error'); }
 }
 
 // ─── 3. VIEW USAGE ───
 async function viewUsage() {
-  const userId = document.getElementById('view-user-id').value;
-  if (!userId) return;
+  const email = document.getElementById('view-user-email').value.trim();
+  if (!email) return;
   document.getElementById('usage-results').innerHTML = loading();
   try {
-    const data = await get(`/api/users/${userId}/usage`);
+    const data = await get(`/api/users/${encodeURIComponent(email)}/usage`);
     if (data.error) {
       document.getElementById('usage-results').innerHTML = `<div class="alert alert-error show">${data.error}</div>`;
+    } else if (data.length === 0) {
+      document.getElementById('usage-results').innerHTML = `<div class="empty"><div class="emoji">◎</div>No usage records found for this email.</div>`;
     } else {
       document.getElementById('usage-results').innerHTML = renderTable(data, [
-        {key:'usage_id', label:'Usage ID'},
-        {key:'dataset_name', label:'Dataset'},
-        {key:'project_name', label:'Project'},
-        {key:'project_category', label:'Category'},
-        {key:'usage_date', label:'Date'},
+        {key:'DatasetID', label:'Dataset ID'},
+        {key:'DatasetName', label:'Dataset'},
+        {key:'ProjectName', label:'Project'},
+        {key:'ProjectCategory', label:'Category'},
+        {key:'License', label:'License'},
       ]);
     }
   } catch(e) { document.getElementById('usage-results').innerHTML = `<div class="alert alert-error show">Connection error</div>`; }
 }
 
-// ─── ORG TYPE DROPDOWN ───
-async function loadOrgTypes() {
-  const sel = document.getElementById('org-type-select');
-  if (sel.children.length > 1) return;
-  const data = await get('/api/meta/org-types').catch(() => []);
-  data.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o); });
-}
+
 
 // ─── 4. BY ORG TYPE ───
 async function fetchByOrgType() {
-  const t = document.getElementById('org-type-select').value;
+  const t = document.getElementById('org-type-input').value.trim();
+  if (!t) return;
   document.getElementById('org-type-results').innerHTML = loading();
   const data = await get('/api/datasets/by-org-type?type=' + encodeURIComponent(t)).catch(() => []);
   document.getElementById('org-type-results').innerHTML = renderTable(data || [], [
-    {key:'dataset_name', label:'Dataset'},
-    {key:'organization_name', label:'Organization'},
-    {key:'organization_type', label:'Type'},
-    {key:'access_level', label:'Access'},
+    {key:'DatasetName', label:'Dataset'},
+    {key:'OrganizationName', label:'Organization'},
+    {key:'OrganizationType', label:'Type'},
+    {key:'AccessLevel', label:'Access'},
   ]);
 }
 
@@ -970,10 +1077,10 @@ async function fetchByFormat() {
   document.getElementById('format-results').innerHTML = loading();
   const data = await get('/api/datasets/by-format?format=' + encodeURIComponent(f)).catch(() => []);
   document.getElementById('format-results').innerHTML = renderTable(data || [], [
-    {key:'dataset_name', label:'Dataset'},
-    {key:'organization_name', label:'Organization'},
-    {key:'format_type', label:'Format'},
-    {key:'access_level', label:'Access'},
+    {key:'DatasetName', label:'Dataset'},
+    {key:'OrganizationName', label:'Organization'},
+    {key:'Format', label:'Format'},
+    {key:'AccessLevel', label:'Access'},
   ]);
 }
 
@@ -984,10 +1091,24 @@ async function fetchByTag() {
   document.getElementById('tag-results').innerHTML = loading();
   const data = await get('/api/datasets/by-tag?tag=' + encodeURIComponent(tag)).catch(() => []);
   document.getElementById('tag-results').innerHTML = renderTable(data || [], [
-    {key:'dataset_name', label:'Dataset'},
-    {key:'organization_name', label:'Organization'},
-    {key:'tag_name', label:'Tag'},
-    {key:'access_level', label:'Access'},
+    {key:'DatasetName', label:'Dataset'},
+    {key:'OrganizationName', label:'Organization'},
+    {key:'TagName', label:'Tag'},
+    {key:'AccessLevel', label:'Access'},
+  ]);
+}
+
+// ─── 8. BY TOPIC ───
+async function fetchByTopic() {
+  const topic = document.getElementById('topic-input').value.trim();
+  if (!topic) return;
+  document.getElementById('topic-results').innerHTML = loading();
+  const data = await get('/api/datasets/by-topic?topic=' + encodeURIComponent(topic)).catch(() => []);
+  document.getElementById('topic-results').innerHTML = renderTable(data || [], [
+    {key:'DatasetName', label:'Dataset'},
+    {key:'OrganizationName', label:'Organization'},
+    {key:'TopicName', label:'Topic'},
+    {key:'AccessLevel', label:'Access'},
   ]);
 }
 
@@ -1124,8 +1245,6 @@ async function loadTopTags() {
 
 // ─── INIT ───
 checkHealth();
-// Auto-load org types for by-org-type
-loadOrgTypes();
 </script>
 </body>
 </html>

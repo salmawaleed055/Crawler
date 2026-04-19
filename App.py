@@ -20,7 +20,7 @@ AIVEN_CONFIG = {
     'user': 'avnadmin',
     'password': 'AVNS_zPM-1nu_PwPJQvgb3JT',
     'database': 'defaultdb',
-    'port': 25162,
+    'port': 25158,
     'connection_timeout': 15,
     'use_pure': True,
     'ssl_disabled': False,
@@ -76,21 +76,27 @@ def index():
 @app.route('/api/users/register', methods=['POST'])
 def register_user():
     data = request.json
-    required = ['email', 'username', 'gender', 'age', 'birthdate', 'country']
+    required = ['email', 'username', 'gender', 'birthdate', 'country']
     for f in required:
         if not data.get(f):
             return jsonify({'error': f'Missing field: {f}'}), 400
 
+    # Use INSERT IGNORE to handle duplicates gracefully
     result, err = query(
-        """INSERT INTO Users (email, username, gender, age, birthdate, country)
-           VALUES (%s, %s, %s, %s, %s, %s)""",
+        """INSERT IGNORE INTO User (Email, Username, Gender, BirthDate, Country)
+           VALUES (%s, %s, %s, %s, %s)""",
         (data['email'], data['username'], data['gender'],
-         data['age'], data['birthdate'], data['country']),
+         data['birthdate'], data['country']),
         fetch=False
     )
     if err:
         return jsonify({'error': err}), 500
-    return jsonify({'message': 'User registered successfully', 'user_id': result}), 201
+    
+    # Return success whether newly inserted or already existed
+    return jsonify({
+        'message': 'User registered successfully' if result > 0 else 'User already exists',
+        'email': data['email']
+    }), 201 if result > 0 else 200
 
 # ─────────────────────────────────────────────
 # 2. ADD DATASET USAGE
@@ -99,7 +105,7 @@ def register_user():
 @app.route('/api/usage', methods=['POST'])
 def add_usage():
     data = request.json
-    required = ['user_id', 'dataset_id', 'project_name', 'project_category']
+    required = ['email', 'dataset_id', 'project_name', 'project_category']
     for f in required:
         if not data.get(f):
             return jsonify({'error': f'Missing field: {f}'}), 400
@@ -108,34 +114,54 @@ def add_usage():
     if data['project_category'].lower() not in valid_categories:
         return jsonify({'error': f'project_category must be one of: {valid_categories}'}), 400
 
+    # Verify user exists
+    user_exists, _ = query(
+        "SELECT Email FROM User WHERE Email = %s",
+        (data['email'],)
+    )
+    if not user_exists:
+        return jsonify({'error': 'User not found'}), 404
+
+    # Verify dataset exists
+    dataset_exists, _ = query(
+        "SELECT DatasetID FROM Dataset WHERE DatasetID = %s",
+        (data['dataset_id'],)
+    )
+    if not dataset_exists:
+        return jsonify({'error': 'Dataset not found'}), 404
+
     result, err = query(
-        """INSERT INTO DatasetUsage (user_id, dataset_id, project_name, project_category, usage_date)
-           VALUES (%s, %s, %s, %s, NOW())""",
-        (data['user_id'], data['dataset_id'], data['project_name'], data['project_category']),
+        """INSERT IGNORE INTO Dataset_User (Email, DatasetID, ProjectName, ProjectCategory)
+           VALUES (%s, %s, %s, %s)""",
+        (data['email'], data['dataset_id'], data['project_name'], data['project_category']),
         fetch=False
     )
     if err:
         return jsonify({'error': err}), 500
-    return jsonify({'message': 'Usage recorded', 'usage_id': result}), 201
+    return jsonify({
+        'message': 'Usage recorded successfully' if result > 0 else 'Usage already recorded',
+        'email': data['email'],
+        'dataset_id': data['dataset_id']
+    }), 201 if result > 0 else 200
 
 # ─────────────────────────────────────────────
 # 3. VIEW USER USAGE HISTORY
 # ─────────────────────────────────────────────
 
-@app.route('/api/users/<int:user_id>/usage', methods=['GET'])
-def user_usage(user_id):
+@app.route('/api/users/<string:email>/usage', methods=['GET'])
+def user_usage(email):
     rows, err = query(
-        """SELECT du.usage_id, d.dataset_name, du.project_name,
-                  du.project_category, du.usage_date
-           FROM DatasetUsage du
-           JOIN Datasets d ON du.dataset_id = d.dataset_id
-           WHERE du.user_id = %s
-           ORDER BY du.usage_date DESC""",
-        (user_id,)
+        """SELECT du.DatasetID, d.DatasetName, du.ProjectName,
+                  du.ProjectCategory, d.License
+           FROM Dataset_User du
+           JOIN Dataset d ON du.DatasetID = d.DatasetID
+           WHERE du.Email = %s
+           ORDER BY d.DatasetName DESC""",
+        (email,)
     )
     if err:
         return jsonify({'error': err}), 500
-    return jsonify(rows)
+    return jsonify(rows or [])
 
 # ─────────────────────────────────────────────
 # 4. DATASETS BY ORGANIZATION TYPE
@@ -146,22 +172,22 @@ def datasets_by_org_type():
     org_type = request.args.get('type', '')
     if org_type:
         rows, err = query(
-            """SELECT d.dataset_id, d.dataset_name, d.access_level,
-                      o.organization_name, o.organization_type
-               FROM Datasets d
-               JOIN Organizations o ON d.organization_id = o.organization_id
-               WHERE o.organization_type LIKE %s
-               ORDER BY o.organization_name, d.dataset_name
+            """SELECT d.DatasetID, d.DatasetName, d.AccessLevel,
+                      o.OrganizationName, o.OrganizationType
+               FROM Dataset d
+               JOIN Organization o ON d.OrganizationID = o.OrganizationID
+               WHERE o.OrganizationType LIKE %s
+               ORDER BY o.OrganizationName, d.DatasetName
                LIMIT 100""",
             (f'%{org_type}%',)
         )
     else:
         rows, err = query(
-            """SELECT d.dataset_id, d.dataset_name, d.access_level,
-                      o.organization_name, o.organization_type
-               FROM Datasets d
-               JOIN Organizations o ON d.organization_id = o.organization_id
-               ORDER BY o.organization_type, o.organization_name
+            """SELECT d.DatasetID, d.DatasetName, d.AccessLevel,
+                      o.OrganizationName, o.OrganizationType
+               FROM Dataset d
+               JOIN Organization o ON d.OrganizationID = o.OrganizationID
+               ORDER BY o.OrganizationType, o.OrganizationName
                LIMIT 100"""
         )
     if err:
@@ -175,12 +201,9 @@ def datasets_by_org_type():
 @app.route('/api/organizations/top5', methods=['GET'])
 def top5_organizations():
     rows, err = query(
-        """SELECT o.organization_name, o.organization_type,
-                  COUNT(d.dataset_id) AS dataset_count
-           FROM Organizations o
-           JOIN Datasets d ON o.organization_id = d.organization_id
-           GROUP BY o.organization_id, o.organization_name, o.organization_type
-           ORDER BY dataset_count DESC
+        """SELECT OrganizationName, OrganizationType
+           FROM Organization
+           ORDER BY OrganizationName
            LIMIT 5"""
     )
     if err:
@@ -197,13 +220,13 @@ def datasets_by_format():
     if not fmt:
         return jsonify({'error': 'format parameter required'}), 400
     rows, err = query(
-        """SELECT DISTINCT d.dataset_id, d.dataset_name, d.access_level,
-                  o.organization_name, f.format_type, f.url
-           FROM Datasets d
-           JOIN Organizations o ON d.organization_id = o.organization_id
-           JOIN DatasetFormats f ON d.dataset_id = f.dataset_id
-           WHERE f.format_type LIKE %s
-           ORDER BY d.dataset_name
+        """SELECT DISTINCT d.DatasetID, d.DatasetName, d.AccessLevel,
+                  o.OrganizationName, r.Format, r.URL
+           FROM Dataset d
+           JOIN Organization o ON d.OrganizationID = o.OrganizationID
+           JOIN Resources r ON d.DatasetID = r.DatasetID
+           WHERE r.Format LIKE %s
+           ORDER BY d.DatasetName
            LIMIT 100""",
         (f'%{fmt}%',)
     )
@@ -221,14 +244,14 @@ def datasets_by_tag():
     if not tag:
         return jsonify({'error': 'tag parameter required'}), 400
     rows, err = query(
-        """SELECT DISTINCT d.dataset_id, d.dataset_name, d.access_level,
-                  o.organization_name, t.tag_name
-           FROM Datasets d
-           JOIN Organizations o ON d.organization_id = o.organization_id
-           JOIN DatasetTags dt ON d.dataset_id = dt.dataset_id
-           JOIN Tags t ON dt.tag_id = t.tag_id
-           WHERE t.tag_name LIKE %s
-           ORDER BY d.dataset_name
+        """SELECT DISTINCT d.DatasetID, d.DatasetName, d.AccessLevel,
+                  o.OrganizationName, t.TagName
+           FROM Dataset d
+           JOIN Organization o ON d.OrganizationID = o.OrganizationID
+           JOIN Dataset_Tags dt ON d.DatasetID = dt.DatasetID
+           JOIN Tag t ON dt.TagName = t.TagName
+           WHERE t.TagName LIKE %s
+           ORDER BY d.DatasetName
            LIMIT 100""",
         (f'%{tag}%',)
     )
@@ -237,36 +260,60 @@ def datasets_by_tag():
     return jsonify(rows)
 
 # ─────────────────────────────────────────────
-# 8. TOTAL DATASETS BY DIMENSION
+# 8. DATASETS BY TOPIC
+# ─────────────────────────────────────────────
+
+@app.route('/api/datasets/by-topic', methods=['GET'])
+def datasets_by_topic():
+    topic = request.args.get('topic', '')
+    if not topic:
+        return jsonify({'error': 'topic parameter required'}), 400
+    rows, err = query(
+        """SELECT DISTINCT d.DatasetID, d.DatasetName, d.AccessLevel,
+                  o.OrganizationName, dt.TopicName
+           FROM Dataset d
+           JOIN Organization o ON d.OrganizationID = o.OrganizationID
+           JOIN Dataset_Topics dt ON d.DatasetID = dt.DatasetID
+           WHERE dt.TopicName LIKE %s
+           ORDER BY d.DatasetName
+           LIMIT 100""",
+        (f'%{topic}%',)
+    )
+    if err:
+        return jsonify({'error': err}), 500
+    return jsonify(rows)
+
+# ─────────────────────────────────────────────
+# 9. TOTAL DATASETS BY DIMENSION
 # ─────────────────────────────────────────────
 
 @app.route('/api/stats/totals', methods=['GET'])
 def stats_totals():
     by_org, _ = query(
-        """SELECT o.organization_name, COUNT(d.dataset_id) AS total
-           FROM Organizations o
-           JOIN Datasets d ON o.organization_id = d.organization_id
-           GROUP BY o.organization_id, o.organization_name
+        """SELECT o.OrganizationName, COUNT(d.DatasetID) AS total
+           FROM Organization o
+           JOIN Dataset d ON o.OrganizationID = d.OrganizationID
+           GROUP BY o.OrganizationID, o.OrganizationName
            ORDER BY total DESC LIMIT 20"""
     )
     by_topic, _ = query(
-        """SELECT d.topic, COUNT(*) AS total
-           FROM Datasets d
-           WHERE d.topic IS NOT NULL AND d.topic != 'N/A'
-           GROUP BY d.topic
+        """SELECT dt.TopicName, COUNT(*) AS total
+           FROM Dataset_Topics dt
+           WHERE dt.TopicName IS NOT NULL
+           GROUP BY dt.TopicName
            ORDER BY total DESC LIMIT 20"""
     )
     by_format, _ = query(
-        """SELECT f.format_type, COUNT(DISTINCT f.dataset_id) AS total
-           FROM DatasetFormats f
-           GROUP BY f.format_type
+        """SELECT r.Format, COUNT(DISTINCT r.DatasetID) AS total
+           FROM Resources r
+           GROUP BY r.Format
            ORDER BY total DESC LIMIT 20"""
     )
     by_org_type, _ = query(
-        """SELECT o.organization_type, COUNT(d.dataset_id) AS total
-           FROM Organizations o
-           JOIN Datasets d ON o.organization_id = d.organization_id
-           GROUP BY o.organization_type
+        """SELECT o.OrganizationType, COUNT(d.DatasetID) AS total
+           FROM Organization o
+           JOIN Dataset d ON o.OrganizationID = d.OrganizationID
+           GROUP BY o.OrganizationType
            ORDER BY total DESC"""
     )
     return jsonify({
@@ -283,12 +330,12 @@ def stats_totals():
 @app.route('/api/datasets/top5-by-users', methods=['GET'])
 def top5_datasets_by_users():
     rows, err = query(
-        """SELECT d.dataset_id, d.dataset_name, o.organization_name,
-                  COUNT(DISTINCT du.user_id) AS user_count
-           FROM Datasets d
-           JOIN DatasetUsage du ON d.dataset_id = du.dataset_id
-           JOIN Organizations o ON d.organization_id = o.organization_id
-           GROUP BY d.dataset_id, d.dataset_name, o.organization_name
+        """SELECT d.DatasetID, d.DatasetName, o.OrganizationName,
+                  COUNT(DISTINCT du.Email) AS user_count
+           FROM Dataset d
+           JOIN Dataset_User du ON d.DatasetID = du.DatasetID
+           JOIN Organization o ON d.OrganizationID = o.OrganizationID
+           GROUP BY d.DatasetID, d.DatasetName, o.OrganizationName
            ORDER BY user_count DESC
            LIMIT 5"""
     )
@@ -303,9 +350,9 @@ def top5_datasets_by_users():
 @app.route('/api/stats/usage-by-project-type', methods=['GET'])
 def usage_by_project_type():
     rows, err = query(
-        """SELECT project_category, COUNT(*) AS usage_count
-           FROM DatasetUsage
-           GROUP BY project_category
+        """SELECT ProjectCategory, COUNT(*) AS usage_count
+           FROM Dataset_User
+           GROUP BY ProjectCategory
            ORDER BY usage_count DESC"""
     )
     if err:
@@ -319,13 +366,13 @@ def usage_by_project_type():
 @app.route('/api/stats/top-tags-by-project-type', methods=['GET'])
 def top_tags_by_project_type():
     rows, err = query(
-        """SELECT du.project_category, t.tag_name,
+        """SELECT du.ProjectCategory, t.TagName,
                   COUNT(*) AS tag_count
-           FROM DatasetUsage du
-           JOIN DatasetTags dt ON du.dataset_id = dt.dataset_id
-           JOIN Tags t ON dt.tag_id = t.tag_id
-           GROUP BY du.project_category, t.tag_id, t.tag_name
-           ORDER BY du.project_category, tag_count DESC"""
+           FROM Dataset_User du
+           JOIN Dataset_Tags dt ON du.DatasetID = dt.DatasetID
+           JOIN Tag t ON dt.TagName = t.TagName
+           GROUP BY du.ProjectCategory, t.TagName
+           ORDER BY du.ProjectCategory, tag_count DESC"""
     )
     if err:
         return jsonify({'error': err}), 500
@@ -333,11 +380,11 @@ def top_tags_by_project_type():
     # Group top 10 per project type
     grouped = {}
     for row in (rows or []):
-        cat = row['project_category']
+        cat = row['ProjectCategory']
         if cat not in grouped:
             grouped[cat] = []
         if len(grouped[cat]) < 10:
-            grouped[cat].append({'tag': row['tag_name'], 'count': row['tag_count']})
+            grouped[cat].append({'tag': row['TagName'], 'count': row['tag_count']})
 
     return jsonify(grouped)
 
@@ -347,24 +394,77 @@ def top_tags_by_project_type():
 
 @app.route('/api/meta/org-types', methods=['GET'])
 def org_types():
-    rows, err = query("SELECT DISTINCT organization_type FROM Organizations ORDER BY organization_type")
+    rows, err = query("SELECT DISTINCT OrganizationType FROM Organization ORDER BY OrganizationType")
     if err:
         return jsonify([])
-    return jsonify([r['organization_type'] for r in rows])
+    return jsonify([r['OrganizationType'] for r in rows])
 
 @app.route('/api/meta/formats', methods=['GET'])
 def formats():
-    rows, err = query("SELECT DISTINCT format_type FROM DatasetFormats ORDER BY format_type LIMIT 50")
+    rows, err = query("SELECT DISTINCT Format FROM Resources ORDER BY Format LIMIT 50")
     if err:
         return jsonify([])
-    return jsonify([r['format_type'] for r in rows])
+    return jsonify([r['Format'] for r in rows] if rows else [])
 
 @app.route('/api/meta/tags', methods=['GET'])
 def tags():
-    rows, err = query("SELECT DISTINCT tag_name FROM Tags ORDER BY tag_name LIMIT 100")
+    rows, err = query("SELECT DISTINCT TagName FROM Tag ORDER BY TagName LIMIT 100")
     if err:
         return jsonify([])
-    return jsonify([r['tag_name'] for r in rows])
+    return jsonify([r['TagName'] for r in rows])
+
+@app.route('/api/dashboard/overview', methods=['GET'])
+def dashboard_overview():
+    """Comprehensive dashboard overview with all statistics"""
+    
+    # Total counts
+    org_count, _ = query("SELECT COUNT(*) as cnt FROM Organization")
+    dataset_count, _ = query("SELECT COUNT(*) as cnt FROM Dataset")
+    user_count, _ = query("SELECT COUNT(*) as cnt FROM User")
+    tag_count, _ = query("SELECT COUNT(*) as cnt FROM Tag")
+    
+    # Top organizations
+    top_orgs, _ = query(
+        """SELECT OrganizationName, OrganizationType FROM Organization 
+           ORDER BY OrganizationName LIMIT 10"""
+    )
+    
+    # License distribution
+    licenses, _ = query(
+        """SELECT COUNT(*) as cnt FROM Dataset GROUP BY License LIMIT 20"""
+    )
+    
+    # Format distribution
+    formats, _ = query(
+        """SELECT Format, COUNT(DISTINCT DatasetID) as cnt 
+           FROM Resources GROUP BY Format ORDER BY cnt DESC LIMIT 15"""
+    )
+    
+    # Topic distribution
+    topics, _ = query(
+        """SELECT TopicName, COUNT(*) as cnt 
+           FROM Dataset_Topics GROUP BY TopicName ORDER BY cnt DESC LIMIT 15"""
+    )
+    
+    # Organization type distribution
+    org_types, _ = query(
+        """SELECT OrganizationType, COUNT(DISTINCT OrganizationID) as cnt 
+           FROM Organization GROUP BY OrganizationType ORDER BY cnt DESC"""
+    )
+    
+    return jsonify({
+        'totals': {
+            'organizations': org_count[0]['cnt'] if org_count else 0,
+            'datasets': dataset_count[0]['cnt'] if dataset_count else 0,
+            'users': user_count[0]['cnt'] if user_count else 0,
+            'tags': tag_count[0]['cnt'] if tag_count else 0,
+        },
+        'top_organizations': top_orgs or [],
+        'licenses': licenses or [],
+        'formats': formats or [],
+        'topics': topics or [],
+        'organization_types': org_types or [],
+    })
 
 @app.route('/api/health', methods=['GET'])
 def health():
