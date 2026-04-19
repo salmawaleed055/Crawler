@@ -201,9 +201,13 @@ def datasets_by_org_type():
 @app.route('/api/organizations/top5', methods=['GET'])
 def top5_organizations():
     rows, err = query(
-        """SELECT OrganizationName, OrganizationType
-           FROM Organization
-           ORDER BY OrganizationName
+        """SELECT o.OrganizationName as organization_name, 
+                  o.OrganizationType as organization_type,
+                  COUNT(d.DatasetID) as dataset_count
+           FROM Organization o
+           LEFT JOIN Dataset d ON o.OrganizationID = d.OrganizationID
+           GROUP BY o.OrganizationID, o.OrganizationName, o.OrganizationType
+           ORDER BY dataset_count DESC
            LIMIT 5"""
     )
     if err:
@@ -290,27 +294,27 @@ def datasets_by_topic():
 @app.route('/api/stats/totals', methods=['GET'])
 def stats_totals():
     by_org, _ = query(
-        """SELECT o.OrganizationName, COUNT(d.DatasetID) AS total
+        """SELECT o.OrganizationName as organization_name, COUNT(d.DatasetID) AS total
            FROM Organization o
            JOIN Dataset d ON o.OrganizationID = d.OrganizationID
            GROUP BY o.OrganizationID, o.OrganizationName
            ORDER BY total DESC LIMIT 20"""
     )
     by_topic, _ = query(
-        """SELECT dt.TopicName, COUNT(*) AS total
+        """SELECT dt.TopicName as topic, COUNT(*) AS total
            FROM Dataset_Topics dt
            WHERE dt.TopicName IS NOT NULL
            GROUP BY dt.TopicName
            ORDER BY total DESC LIMIT 20"""
     )
     by_format, _ = query(
-        """SELECT r.Format, COUNT(DISTINCT r.DatasetID) AS total
+        """SELECT r.Format as format_type, COUNT(DISTINCT r.DatasetID) AS total
            FROM Resources r
            GROUP BY r.Format
            ORDER BY total DESC LIMIT 20"""
     )
     by_org_type, _ = query(
-        """SELECT o.OrganizationType, COUNT(d.DatasetID) AS total
+        """SELECT o.OrganizationType as organization_type, COUNT(d.DatasetID) AS total
            FROM Organization o
            JOIN Dataset d ON o.OrganizationID = d.OrganizationID
            GROUP BY o.OrganizationType
@@ -330,7 +334,7 @@ def stats_totals():
 @app.route('/api/datasets/top5-by-users', methods=['GET'])
 def top5_datasets_by_users():
     rows, err = query(
-        """SELECT d.DatasetID, d.DatasetName, o.OrganizationName,
+        """SELECT d.DatasetID, d.DatasetName as dataset_name, o.OrganizationName as organization_name,
                   COUNT(DISTINCT du.Email) AS user_count
            FROM Dataset d
            JOIN Dataset_User du ON d.DatasetID = du.DatasetID
@@ -350,7 +354,7 @@ def top5_datasets_by_users():
 @app.route('/api/stats/usage-by-project-type', methods=['GET'])
 def usage_by_project_type():
     rows, err = query(
-        """SELECT ProjectCategory, COUNT(*) AS usage_count
+        """SELECT ProjectCategory as project_category, COUNT(*) AS usage_count
            FROM Dataset_User
            GROUP BY ProjectCategory
            ORDER BY usage_count DESC"""
@@ -366,7 +370,7 @@ def usage_by_project_type():
 @app.route('/api/stats/top-tags-by-project-type', methods=['GET'])
 def top_tags_by_project_type():
     rows, err = query(
-        """SELECT du.ProjectCategory, t.TagName,
+        """SELECT du.ProjectCategory as project_category, t.TagName as tag,
                   COUNT(*) AS tag_count
            FROM Dataset_User du
            JOIN Dataset_Tags dt ON du.DatasetID = dt.DatasetID
@@ -374,6 +378,7 @@ def top_tags_by_project_type():
            GROUP BY du.ProjectCategory, t.TagName
            ORDER BY du.ProjectCategory, tag_count DESC"""
     )
+
     if err:
         return jsonify({'error': err}), 500
 
