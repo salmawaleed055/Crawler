@@ -1,4 +1,4 @@
-"""
+﻿"""
 Populate Dataset_Topics table with actual topic data from CSV
 """
 
@@ -16,36 +16,36 @@ config = {
 try:
     conn = mysql.connector.connect(**config)
     cursor = conn.cursor()
-    
+
     print("Loading topics from CSV...")
     df = pd.read_csv('Database Tables CSV/Dataset_topic.csv')
-    
+
     # Get unique topics first
     print(f"Found {len(df)} dataset-topic relationships")
-    print(f"Unique topics: {df['topic'].nunique()}")
-    
-    # Clear existing data (optional - remove if you want to keep existing)
+    print(f"Unique topics: {df['TopicName'].nunique()}")
+
+    # Clear existing data (optional - remove if you want to keep existing)      
     print("\nClearing existing Dataset_Topics table...")
     cursor.execute('DELETE FROM Dataset_Topics')
     conn.commit()
-    
+
     # Ensure all topics exist in Topic table
     print("Ensuring all topics exist in Topic table...")
-    unique_topics = df['topic'].unique()
+    unique_topics = df['TopicName'].unique()
     for topic in unique_topics:
         cursor.execute(
             'INSERT IGNORE INTO Topic (TopicName) VALUES (%s)',
             (str(topic),)
         )
     conn.commit()
-    print(f"  ✓ Inserted/verified {len(unique_topics)} unique topics")
-    
+    print(f"  V Inserted/verified {len(unique_topics)} unique topics")        
+
     # Populate Dataset_Topics
     print("\nPopulating Dataset_Topics table...")
     rows = []
     for _, row in df.iterrows():
-        dataset_id = int(row['dataset_id'])
-        topic = str(row['topic'])
+        dataset_id = int(row['DatasetID'])
+        topic = str(row['TopicName'])
         rows.append((dataset_id, topic))
     
     # Batch insert
@@ -56,22 +56,22 @@ try:
             batch
         )
         conn.commit()
-        print(f"  ✓ Inserted batch {i//1000 + 1}")
-    
-    print(f"\n✓ Total dataset-topic relationships loaded: {len(rows)}")
-    
+        print(f"  V Inserted batch {i//1000 + 1}")
+
+    print(f"\nV Total dataset-topic relationships loaded: {len(rows)}")       
+
     # Verify
     cursor.execute('SELECT COUNT(*) FROM Dataset_Topics')
     count = cursor.fetchone()[0]
-    print(f"✓ Dataset_Topics table now contains: {count} records")
-    
+    print(f"V Dataset_Topics table now contains: {count} records")
+
     cursor.execute('SELECT COUNT(*) FROM Topic')
     topic_count = cursor.fetchone()[0]
-    print(f"✓ Topic table now contains: {topic_count} unique topics")
-    
+    print(f"V Topic table now contains: {topic_count} unique topics")
+
     cursor.close()
     conn.close()
-    print("\n✓ Population complete!")
+    print("\nV Population complete!")
     
 except Exception as e:
     print(f"Error: {e}")
