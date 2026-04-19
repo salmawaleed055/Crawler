@@ -1,0 +1,1131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Data.gov Explorer — CSCE 2501</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --ink: #0d1117;
+  --paper: #f5f0e8;
+  --cream: #ede8dc;
+  --gold: #c8a84b;
+  --gold-light: #e8d080;
+  --rust: #c4542a;
+  --teal: #1a6b6b;
+  --teal-light: #2a9090;
+  --muted: #8a8070;
+  --border: #d4cfc0;
+  --white: #fefcf8;
+  --card-bg: #faf7f1;
+  --success: #2d7a4f;
+  --error: #b53030;
+  --sidebar-w: 260px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Instrument Sans', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  display: flex;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--ink);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.sidebar-header {
+  padding: 32px 24px 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.sidebar-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 22px;
+  color: var(--gold);
+  line-height: 1.2;
+  margin-bottom: 6px;
+}
+
+.sidebar-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sidebar-status {
+  margin: 12px 24px 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.4);
+  font-family: 'DM Mono', monospace;
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #555;
+  flex-shrink: 0;
+  transition: background 0.3s;
+}
+.status-dot.ok { background: #4caf89; }
+.status-dot.err { background: var(--rust); }
+
+nav { padding: 16px 12px; flex: 1; }
+
+.nav-section {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.25);
+  padding: 16px 12px 6px;
+}
+
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  background: transparent;
+  color: rgba(255,255,255,0.6);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 13px;
+  cursor: pointer;
+  border-radius: 6px;
+  text-align: left;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+}
+
+.nav-btn:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
+.nav-btn.active { background: var(--gold); color: var(--ink); font-weight: 600; }
+.nav-btn .icon { width: 16px; text-align: center; flex-shrink: 0; font-size: 14px; }
+
+.sidebar-footer {
+  padding: 20px 24px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: rgba(255,255,255,0.2);
+  line-height: 1.6;
+}
+
+/* ── MAIN ── */
+main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  padding: 0 40px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 18px;
+  color: var(--ink);
+}
+
+.topbar-breadcrumb {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.content {
+  padding: 36px 40px;
+  flex: 1;
+  max-width: 1100px;
+}
+
+/* ── SECTIONS ── */
+.section { display: none; }
+.section.active { display: block; }
+
+.section-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 30px;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+.section-desc {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 28px;
+  margin-bottom: 20px;
+}
+
+.card-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: 17px;
+  color: var(--teal);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── FORMS ── */
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.form-grid.full { grid-template-columns: 1fr; }
+
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.field input, .field select, .field textarea {
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--white);
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 14px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+}
+.field input:focus, .field select:focus { border-color: var(--teal); }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 22px;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-primary { background: var(--teal); color: #fff; }
+.btn-primary:hover { background: var(--teal-light); }
+.btn-gold { background: var(--gold); color: var(--ink); }
+.btn-gold:hover { background: var(--gold-light); }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+}
+.btn-outline:hover { border-color: var(--teal); color: var(--teal); }
+.btn-sm { padding: 7px 14px; font-size: 13px; }
+
+/* ── ALERTS ── */
+.alert {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-top: 14px;
+  display: none;
+}
+.alert.show { display: block; }
+.alert-success { background: #e8f5ee; color: var(--success); border: 1px solid #b8e4cc; }
+.alert-error { background: #fdeaea; color: var(--error); border: 1px solid #f4b8b8; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; margin-top: 16px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+th {
+  background: var(--cream);
+  text-align: left;
+  padding: 10px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--cream); }
+
+/* ── STAT CARDS ── */
+.stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.stat-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 20px;
+}
+.stat-value {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  color: var(--teal);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
+/* ── BADGE ── */
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 500;
+}
+.badge-teal { background: #d4eee8; color: var(--teal); }
+.badge-gold { background: #f5eacc; color: #8a6010; }
+.badge-rust { background: #fae0d6; color: var(--rust); }
+
+/* ── SEARCH ROW ── */
+.search-row { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 20px; }
+.search-row .field { flex: 1; }
+
+/* ── BAR CHART ── */
+.bar-chart { margin-top: 12px; }
+.bar-item { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.bar-label { font-size: 12px; color: var(--ink); min-width: 160px; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { flex: 1; height: 18px; background: var(--cream); border-radius: 4px; overflow: hidden; }
+.bar-fill { height: 100%; background: var(--teal); border-radius: 4px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+.bar-fill.gold { background: var(--gold); }
+.bar-fill.rust { background: var(--rust); }
+.bar-count { font-family: 'DM Mono', monospace; font-size: 12px; color: var(--muted); min-width: 36px; text-align: right; }
+
+/* ── LOADING ── */
+.loading {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--muted); font-size: 13px; padding: 20px 0;
+}
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--teal);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── EMPTY ── */
+.empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+.empty .emoji { font-size: 32px; margin-bottom: 8px; }
+
+/* ── TAG CLOUD ── */
+.tag-cloud { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.tag-pill {
+  padding: 4px 12px;
+  background: var(--cream);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--ink);
+  font-family: 'DM Mono', monospace;
+}
+.tag-pill.big { font-size: 14px; padding: 6px 16px; background: var(--teal); color: white; border-color: var(--teal); }
+.tag-pill.med { font-size: 13px; padding: 5px 13px; background: var(--cream); border-color: var(--teal); color: var(--teal); }
+
+/* ── RANK ── */
+.rank-list { margin-top: 12px; }
+.rank-item {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid var(--border);
+}
+.rank-item:last-child { border-bottom: none; }
+.rank-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 28px;
+  color: var(--border);
+  min-width: 36px;
+}
+.rank-info { flex: 1; min-width: 0; }
+.rank-name { font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-meta { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.rank-count {
+  font-family: 'DM Mono', monospace;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--teal);
+}
+
+/* ── PIE LEGEND ── */
+.pie-legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 16px; }
+.pie-legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.pie-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── DONUT ── */
+canvas { max-width: 220px; max-height: 220px; }
+.donut-wrap { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
+
+/* ── WELCOME ── */
+.welcome-hero {
+  background: var(--ink);
+  border-radius: 12px;
+  padding: 40px;
+  color: white;
+  margin-bottom: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.welcome-hero::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 240px; height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,168,75,0.2), transparent 70%);
+}
+.welcome-hero h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 36px;
+  color: var(--gold);
+  margin-bottom: 10px;
+}
+.welcome-hero p { color: rgba(255,255,255,0.6); font-size: 15px; line-height: 1.6; max-width: 560px; }
+.welcome-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.welcome-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.welcome-card:hover { border-color: var(--teal); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.07); }
+.welcome-card .wc-icon { font-size: 24px; margin-bottom: 8px; }
+.welcome-card .wc-title { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+.welcome-card .wc-desc { font-size: 12px; color: var(--muted); }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+.tab-btn {
+  padding: 9px 18px;
+  border: none;
+  background: transparent;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.tab-btn.active { color: var(--teal); border-bottom-color: var(--teal); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ── RESULT COUNT ── */
+.result-count {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">Data.gov<br/>Explorer</div>
+    <div class="sidebar-sub">CSCE 2501 · Milestone III</div>
+  </div>
+  <div class="sidebar-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Connecting…</span>
+  </div>
+
+  <nav>
+    <div class="nav-section">Overview</div>
+    <button class="nav-btn active" onclick="navigate('home')" data-section="home">
+      <span class="icon">⌂</span> Dashboard
+    </button>
+
+    <div class="nav-section">User Actions</div>
+    <button class="nav-btn" onclick="navigate('register')" data-section="register">
+      <span class="icon">✦</span> Register User
+    </button>
+    <button class="nav-btn" onclick="navigate('add-usage')" data-section="add-usage">
+      <span class="icon">＋</span> Add Dataset Usage
+    </button>
+    <button class="nav-btn" onclick="navigate('view-usage')" data-section="view-usage">
+      <span class="icon">◎</span> View My Usage
+    </button>
+
+    <div class="nav-section">Browse Datasets</div>
+    <button class="nav-btn" onclick="navigate('by-org-type')" data-section="by-org-type">
+      <span class="icon">⊟</span> By Org Type
+    </button>
+    <button class="nav-btn" onclick="navigate('by-format')" data-section="by-format">
+      <span class="icon">◈</span> By Format
+    </button>
+    <button class="nav-btn" onclick="navigate('by-tag')" data-section="by-tag">
+      <span class="icon">◉</span> By Tag
+    </button>
+
+    <div class="nav-section">Analytics</div>
+    <button class="nav-btn" onclick="navigate('top-orgs')" data-section="top-orgs">
+      <span class="icon">▲</span> Top Organizations
+    </button>
+    <button class="nav-btn" onclick="navigate('top-datasets')" data-section="top-datasets">
+      <span class="icon">★</span> Top Datasets
+    </button>
+    <button class="nav-btn" onclick="navigate('totals')" data-section="totals">
+      <span class="icon">≡</span> Dataset Totals
+    </button>
+    <button class="nav-btn" onclick="navigate('usage-dist')" data-section="usage-dist">
+      <span class="icon">◐</span> Usage Distribution
+    </button>
+    <button class="nav-btn" onclick="navigate('top-tags')" data-section="top-tags">
+      <span class="icon">⌗</span> Tags by Project
+    </button>
+  </nav>
+
+  <div class="sidebar-footer">
+    Aiven MySQL · AUC · Spring 2026<br/>
+    Prof. Hossam Sharara
+  </div>
+</aside>
+
+<!-- MAIN -->
+<main>
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-breadcrumb" id="topbarBreadcrumb">Data.gov Explorer</div>
+  </div>
+
+  <div class="content">
+
+    <!-- HOME -->
+    <div class="section active" id="section-home">
+      <div class="welcome-hero">
+        <h1>US Public Dataset Explorer</h1>
+        <p>Explore, query, and analyze 2,000+ datasets from the US Government's open data portal. Powered by Aiven-hosted MySQL.</p>
+      </div>
+      <div class="welcome-grid">
+        <div class="welcome-card" onclick="navigate('register')">
+          <div class="wc-icon">✦</div>
+          <div class="wc-title">Register User</div>
+          <div class="wc-desc">Create an account to track dataset usage</div>
+        </div>
+        <div class="welcome-card" onclick="navigate('by-org-type')">
+          <div class="wc-icon">⊟</div>
+          <div class="wc-title">Browse by Org</div>
+          <div class="wc-desc">Filter datasets by federal, state, city agencies</div>
+        </div>
+        <div class="welcome-card" onclick="navigate('top-orgs')">
+          <div class="wc-icon">▲</div>
+          <div class="wc-title">Top Organizations</div>
+          <div class="wc-desc">See the 5 most prolific data publishers</div>
+        </div>
+        <div class="welcome-card" onclick="navigate('usage-dist')">
+          <div class="wc-icon">◐</div>
+          <div class="wc-title">Usage Analytics</div>
+          <div class="wc-desc">Distribution of dataset use by project type</div>
+        </div>
+        <div class="welcome-card" onclick="navigate('top-tags')">
+          <div class="wc-icon">⌗</div>
+          <div class="wc-title">Tags by Project</div>
+          <div class="wc-desc">Top 10 tags for each project category</div>
+        </div>
+        <div class="welcome-card" onclick="navigate('totals')">
+          <div class="wc-icon">≡</div>
+          <div class="wc-title">Dataset Totals</div>
+          <div class="wc-desc">Aggregated counts by org, topic, format</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- REGISTER USER -->
+    <div class="section" id="section-register">
+      <div class="section-title">Register a User</div>
+      <div class="section-desc">Create a new account to record dataset usage and projects.</div>
+      <div class="card">
+        <div class="card-title">✦ New User Registration</div>
+        <div class="form-grid">
+          <div class="field"><label>Email *</label><input type="email" id="reg-email" placeholder="user@example.com"/></div>
+          <div class="field"><label>Username *</label><input type="text" id="reg-username" placeholder="john_doe"/></div>
+          <div class="field">
+            <label>Gender *</label>
+            <select id="reg-gender">
+              <option value="">Select…</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
+              <option value="Prefer not to say">Prefer not to say</option>
+            </select>
+          </div>
+          <div class="field"><label>Age *</label><input type="number" id="reg-age" min="1" max="120" placeholder="25"/></div>
+          <div class="field"><label>Birthdate *</label><input type="date" id="reg-birthdate"/></div>
+          <div class="field"><label>Country *</label><input type="text" id="reg-country" placeholder="USA"/></div>
+        </div>
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" onclick="registerUser()">✦ Register Account</button>
+        </div>
+        <div class="alert alert-success" id="reg-success"></div>
+        <div class="alert alert-error" id="reg-error"></div>
+      </div>
+    </div>
+
+    <!-- ADD USAGE -->
+    <div class="section" id="section-add-usage">
+      <div class="section-title">Add Dataset Usage</div>
+      <div class="section-desc">Record that a user has used a dataset for a specific project.</div>
+      <div class="card">
+        <div class="card-title">＋ Record New Usage</div>
+        <div class="form-grid">
+          <div class="field"><label>User ID *</label><input type="number" id="usage-user-id" placeholder="1"/></div>
+          <div class="field"><label>Dataset ID *</label><input type="number" id="usage-dataset-id" placeholder="42"/></div>
+          <div class="field"><label>Project Name *</label><input type="text" id="usage-project-name" placeholder="Traffic Analysis 2025"/></div>
+          <div class="field">
+            <label>Project Category *</label>
+            <select id="usage-category">
+              <option value="">Select…</option>
+              <option value="analytics">Analytics</option>
+              <option value="machine learning">Machine Learning</option>
+              <option value="field research">Field Research</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-top:20px;">
+          <button class="btn btn-primary" onclick="addUsage()">＋ Record Usage</button>
+        </div>
+        <div class="alert alert-success" id="usage-success"></div>
+        <div class="alert alert-error" id="usage-error"></div>
+      </div>
+    </div>
+
+    <!-- VIEW USAGE -->
+    <div class="section" id="section-view-usage">
+      <div class="section-title">View Usage History</div>
+      <div class="section-desc">Look up all dataset usage records for a given user.</div>
+      <div class="search-row">
+        <div class="field">
+          <label>User ID</label>
+          <input type="number" id="view-user-id" placeholder="Enter user ID…"/>
+        </div>
+        <button class="btn btn-primary" onclick="viewUsage()">Search</button>
+      </div>
+      <div id="usage-results"></div>
+    </div>
+
+    <!-- BY ORG TYPE -->
+    <div class="section" id="section-by-org-type">
+      <div class="section-title">Datasets by Organization Type</div>
+      <div class="section-desc">Filter datasets by their publisher's organization type (federal, state, city, etc.).</div>
+      <div class="search-row">
+        <div class="field">
+          <label>Organization Type</label>
+          <select id="org-type-select">
+            <option value="">All Types</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="fetchByOrgType()">Filter</button>
+      </div>
+      <div id="org-type-results"></div>
+    </div>
+
+    <!-- BY FORMAT -->
+    <div class="section" id="section-by-format">
+      <div class="section-title">Datasets by Format</div>
+      <div class="section-desc">Find all datasets available in a specific file format (CSV, JSON, PDF, etc.).</div>
+      <div class="search-row">
+        <div class="field">
+          <label>File Format</label>
+          <select id="format-select">
+            <option value="">Select format…</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" onclick="fetchByFormat()">Search</button>
+      </div>
+      <div id="format-results"></div>
+    </div>
+
+    <!-- BY TAG -->
+    <div class="section" id="section-by-tag">
+      <div class="section-title">Datasets by Tag</div>
+      <div class="section-desc">Search for datasets associated with a specific keyword tag.</div>
+      <div class="search-row">
+        <div class="field">
+          <label>Tag / Keyword</label>
+          <input type="text" id="tag-input" placeholder="e.g. health, energy, transportation…"/>
+        </div>
+        <button class="btn btn-primary" onclick="fetchByTag()">Search</button>
+      </div>
+      <div id="tag-results"></div>
+    </div>
+
+    <!-- TOP ORGS -->
+    <div class="section" id="section-top-orgs">
+      <div class="section-title">Top 5 Organizations</div>
+      <div class="section-desc">The five most prolific dataset-publishing organizations on Data.gov.</div>
+      <div class="card">
+        <div class="card-title">▲ Ranked by Dataset Count</div>
+        <div id="top-orgs-content"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- TOP DATASETS -->
+    <div class="section" id="section-top-datasets">
+      <div class="section-title">Top 5 Datasets by Users</div>
+      <div class="section-desc">Datasets with the most unique users recorded in the system.</div>
+      <div class="card">
+        <div class="card-title">★ Most Popular Datasets</div>
+        <div id="top-datasets-content"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- TOTALS -->
+    <div class="section" id="section-totals">
+      <div class="section-title">Dataset Totals</div>
+      <div class="section-desc">Aggregated dataset counts broken down by different dimensions.</div>
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('totals', 'org')">By Organization</button>
+        <button class="tab-btn" onclick="switchTab('totals', 'topic')">By Topic</button>
+        <button class="tab-btn" onclick="switchTab('totals', 'format')">By Format</button>
+        <button class="tab-btn" onclick="switchTab('totals', 'orgtype')">By Org Type</button>
+      </div>
+      <div class="tab-content active" id="totals-tab-org"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+      <div class="tab-content" id="totals-tab-topic"></div>
+      <div class="tab-content" id="totals-tab-format"></div>
+      <div class="tab-content" id="totals-tab-orgtype"></div>
+    </div>
+
+    <!-- USAGE DISTRIBUTION -->
+    <div class="section" id="section-usage-dist">
+      <div class="section-title">Usage Distribution</div>
+      <div class="section-desc">How dataset usage is distributed across the three project categories.</div>
+      <div class="card">
+        <div class="card-title">◐ Distribution by Project Type</div>
+        <div id="usage-dist-content"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- TOP TAGS BY PROJECT TYPE -->
+    <div class="section" id="section-top-tags">
+      <div class="section-title">Top Tags by Project Type</div>
+      <div class="section-desc">The 10 most common dataset tags for each project category.</div>
+      <div id="top-tags-content"><div class="loading"><div class="spinner"></div>Loading…</div></div>
+    </div>
+
+  </div><!-- /content -->
+</main>
+
+<script>
+const API = '';  // same origin
+
+const SECTION_TITLES = {
+  'home': 'Dashboard', 'register': 'Register User', 'add-usage': 'Add Dataset Usage',
+  'view-usage': 'View My Usage', 'by-org-type': 'By Organization Type',
+  'by-format': 'By Format', 'by-tag': 'By Tag', 'top-orgs': 'Top Organizations',
+  'top-datasets': 'Top Datasets', 'totals': 'Dataset Totals',
+  'usage-dist': 'Usage Distribution', 'top-tags': 'Tags by Project Type'
+};
+
+// ─── NAVIGATION ───
+function navigate(section) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('section-' + section).classList.add('active');
+  document.querySelector(`[data-section="${section}"]`)?.classList.add('active');
+  document.getElementById('topbarTitle').textContent = SECTION_TITLES[section] || section;
+  onSectionLoad(section);
+}
+
+function onSectionLoad(section) {
+  if (section === 'by-org-type') loadOrgTypes();
+  if (section === 'by-format') loadFormats();
+  if (section === 'top-orgs') loadTopOrgs();
+  if (section === 'top-datasets') loadTopDatasets();
+  if (section === 'totals') loadTotals();
+  if (section === 'usage-dist') loadUsageDist();
+  if (section === 'top-tags') loadTopTags();
+}
+
+// ─── API HELPERS ───
+async function get(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+async function post(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(body)
+  });
+  return r.json();
+}
+
+// ─── HEALTH CHECK ───
+async function checkHealth() {
+  try {
+    const data = await get('/api/health');
+    const dot = document.getElementById('statusDot');
+    const txt = document.getElementById('statusText');
+    if (data.status === 'ok') {
+      dot.className = 'status-dot ok';
+      txt.textContent = 'Connected';
+    } else {
+      dot.className = 'status-dot err';
+      txt.textContent = 'DB Error';
+    }
+  } catch(e) {
+    document.getElementById('statusDot').className = 'status-dot err';
+    document.getElementById('statusText').textContent = 'Offline';
+  }
+}
+
+// ─── TABLE RENDERER ───
+function renderTable(rows, cols) {
+  if (!rows || rows.length === 0) return `<div class="empty"><div class="emoji">◎</div>No results found.</div>`;
+  const thead = cols.map(c => `<th>${c.label}</th>`).join('');
+  const tbody = rows.map(r =>
+    `<tr>${cols.map(c => `<td title="${r[c.key] ?? ''}">${r[c.key] ?? '—'}</td>`).join('')}</tr>`
+  ).join('');
+  return `<div class="result-count">${rows.length} result${rows.length !== 1 ? 's' : ''}</div>
+          <div class="table-wrap"><table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table></div>`;
+}
+
+// ─── BAR CHART ───
+function renderBar(items, labelKey, countKey, colorClass = '') {
+  if (!items || items.length === 0) return `<div class="empty"><div class="emoji">◎</div>No data.</div>`;
+  const max = Math.max(...items.map(i => +i[countKey]));
+  return `<div class="bar-chart">${items.map(i => `
+    <div class="bar-item">
+      <div class="bar-label" title="${i[labelKey]}">${i[labelKey]}</div>
+      <div class="bar-track"><div class="bar-fill ${colorClass}" style="width:${Math.round((+i[countKey]/max)*100)}%"></div></div>
+      <div class="bar-count">${i[countKey]}</div>
+    </div>`).join('')}</div>`;
+}
+
+// ─── ALERT HELPER ───
+function showAlert(id, msg, type='success') {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = `alert alert-${type} show`;
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+// ─── LOADING ───
+function loading() { return `<div class="loading"><div class="spinner"></div>Loading…</div>`; }
+
+// ─── 1. REGISTER USER ───
+async function registerUser() {
+  const payload = {
+    email: document.getElementById('reg-email').value.trim(),
+    username: document.getElementById('reg-username').value.trim(),
+    gender: document.getElementById('reg-gender').value,
+    age: parseInt(document.getElementById('reg-age').value),
+    birthdate: document.getElementById('reg-birthdate').value,
+    country: document.getElementById('reg-country').value.trim()
+  };
+  try {
+    const data = await post('/api/users/register', payload);
+    if (data.error) {
+      showAlert('reg-error', '✗ ' + data.error, 'error');
+    } else {
+      showAlert('reg-success', `✓ User registered! ID: ${data.user_id}`);
+      ['reg-email','reg-username','reg-age','reg-birthdate','reg-country'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('reg-gender').value = '';
+    }
+  } catch(e) { showAlert('reg-error', '✗ Connection error', 'error'); }
+}
+
+// ─── 2. ADD USAGE ───
+async function addUsage() {
+  const payload = {
+    user_id: parseInt(document.getElementById('usage-user-id').value),
+    dataset_id: parseInt(document.getElementById('usage-dataset-id').value),
+    project_name: document.getElementById('usage-project-name').value.trim(),
+    project_category: document.getElementById('usage-category').value
+  };
+  try {
+    const data = await post('/api/usage', payload);
+    if (data.error) {
+      showAlert('usage-error', '✗ ' + data.error, 'error');
+    } else {
+      showAlert('usage-success', `✓ Usage recorded! ID: ${data.usage_id}`);
+    }
+  } catch(e) { showAlert('usage-error', '✗ Connection error', 'error'); }
+}
+
+// ─── 3. VIEW USAGE ───
+async function viewUsage() {
+  const userId = document.getElementById('view-user-id').value;
+  if (!userId) return;
+  document.getElementById('usage-results').innerHTML = loading();
+  try {
+    const data = await get(`/api/users/${userId}/usage`);
+    if (data.error) {
+      document.getElementById('usage-results').innerHTML = `<div class="alert alert-error show">${data.error}</div>`;
+    } else {
+      document.getElementById('usage-results').innerHTML = renderTable(data, [
+        {key:'usage_id', label:'Usage ID'},
+        {key:'dataset_name', label:'Dataset'},
+        {key:'project_name', label:'Project'},
+        {key:'project_category', label:'Category'},
+        {key:'usage_date', label:'Date'},
+      ]);
+    }
+  } catch(e) { document.getElementById('usage-results').innerHTML = `<div class="alert alert-error show">Connection error</div>`; }
+}
+
+// ─── ORG TYPE DROPDOWN ───
+async function loadOrgTypes() {
+  const sel = document.getElementById('org-type-select');
+  if (sel.children.length > 1) return;
+  const data = await get('/api/meta/org-types').catch(() => []);
+  data.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; sel.appendChild(o); });
+}
+
+// ─── 4. BY ORG TYPE ───
+async function fetchByOrgType() {
+  const t = document.getElementById('org-type-select').value;
+  document.getElementById('org-type-results').innerHTML = loading();
+  const data = await get('/api/datasets/by-org-type?type=' + encodeURIComponent(t)).catch(() => []);
+  document.getElementById('org-type-results').innerHTML = renderTable(data || [], [
+    {key:'dataset_name', label:'Dataset'},
+    {key:'organization_name', label:'Organization'},
+    {key:'organization_type', label:'Type'},
+    {key:'access_level', label:'Access'},
+  ]);
+}
+
+// ─── FORMAT DROPDOWN ───
+async function loadFormats() {
+  const sel = document.getElementById('format-select');
+  if (sel.children.length > 1) return;
+  const data = await get('/api/meta/formats').catch(() => []);
+  data.forEach(f => { const o = document.createElement('option'); o.value = f; o.textContent = f; sel.appendChild(o); });
+}
+
+// ─── 5 (6). BY FORMAT ───
+async function fetchByFormat() {
+  const f = document.getElementById('format-select').value;
+  if (!f) return;
+  document.getElementById('format-results').innerHTML = loading();
+  const data = await get('/api/datasets/by-format?format=' + encodeURIComponent(f)).catch(() => []);
+  document.getElementById('format-results').innerHTML = renderTable(data || [], [
+    {key:'dataset_name', label:'Dataset'},
+    {key:'organization_name', label:'Organization'},
+    {key:'format_type', label:'Format'},
+    {key:'access_level', label:'Access'},
+  ]);
+}
+
+// ─── 7. BY TAG ───
+async function fetchByTag() {
+  const tag = document.getElementById('tag-input').value.trim();
+  if (!tag) return;
+  document.getElementById('tag-results').innerHTML = loading();
+  const data = await get('/api/datasets/by-tag?tag=' + encodeURIComponent(tag)).catch(() => []);
+  document.getElementById('tag-results').innerHTML = renderTable(data || [], [
+    {key:'dataset_name', label:'Dataset'},
+    {key:'organization_name', label:'Organization'},
+    {key:'tag_name', label:'Tag'},
+    {key:'access_level', label:'Access'},
+  ]);
+}
+
+// ─── 5 (TOP ORGS) ───
+async function loadTopOrgs() {
+  const el = document.getElementById('top-orgs-content');
+  if (el.dataset.loaded) return;
+  const data = await get('/api/organizations/top5').catch(() => []);
+  if (!data || data.length === 0) { el.innerHTML = `<div class="empty"><div class="emoji">◎</div>No data.</div>`; return; }
+  el.innerHTML = `<div class="rank-list">${data.map((d,i) => `
+    <div class="rank-item">
+      <div class="rank-num">${i+1}</div>
+      <div class="rank-info">
+        <div class="rank-name">${d.organization_name}</div>
+        <div class="rank-meta"><span class="badge badge-teal">${d.organization_type || 'Government'}</span></div>
+      </div>
+      <div class="rank-count">${d.dataset_count}</div>
+    </div>`).join('')}</div>
+    <div style="margin-top:20px;">${renderBar(data, 'organization_name', 'dataset_count', 'gold')}</div>`;
+  el.dataset.loaded = '1';
+}
+
+// ─── TOP DATASETS ───
+async function loadTopDatasets() {
+  const el = document.getElementById('top-datasets-content');
+  if (el.dataset.loaded) return;
+  const data = await get('/api/datasets/top5-by-users').catch(() => []);
+  if (!data || data.length === 0) { el.innerHTML = `<div class="empty"><div class="emoji">◎</div>No data.</div>`; return; }
+  el.innerHTML = `<div class="rank-list">${data.map((d,i) => `
+    <div class="rank-item">
+      <div class="rank-num">${i+1}</div>
+      <div class="rank-info">
+        <div class="rank-name">${d.dataset_name}</div>
+        <div class="rank-meta">${d.organization_name}</div>
+      </div>
+      <div class="rank-count">${d.user_count} users</div>
+    </div>`).join('')}</div>`;
+  el.dataset.loaded = '1';
+}
+
+// ─── TOTALS ───
+let totalsData = null;
+async function loadTotals() {
+  if (totalsData) { renderTotalsTab('org'); return; }
+  document.getElementById('totals-tab-org').innerHTML = loading();
+  totalsData = await get('/api/stats/totals').catch(() => ({}));
+  renderTotalsTab('org');
+}
+
+function switchTab(section, tabId) {
+  document.querySelectorAll(`#section-${section} .tab-btn`).forEach((b,i) => b.classList.remove('active'));
+  document.querySelectorAll(`#section-${section} .tab-content`).forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById(`${section}-tab-${tabId}`).classList.add('active');
+  if (section === 'totals' && totalsData) renderTotalsTab(tabId);
+}
+
+function renderTotalsTab(tab) {
+  const map = { org: ['by_organization','organization_name','total'], topic: ['by_topic','topic','total'], format: ['by_format','format_type','total'], orgtype: ['by_org_type','organization_type','total'] };
+  const [key, lk, ck] = map[tab];
+  const el = document.getElementById(`totals-tab-${tab}`);
+  el.innerHTML = renderBar(totalsData[key] || [], lk, ck, tab === 'format' ? 'rust' : tab === 'orgtype' ? 'gold' : '');
+}
+
+// ─── USAGE DIST ───
+async function loadUsageDist() {
+  const el = document.getElementById('usage-dist-content');
+  if (el.dataset.loaded) return;
+  const data = await get('/api/stats/usage-by-project-type').catch(() => []);
+  if (!data || data.length === 0) { el.innerHTML = `<div class="empty"><div class="emoji">◎</div>No usage data yet.</div>`; return; }
+
+  const COLORS = ['#1a6b6b', '#c8a84b', '#c4542a'];
+  const total = data.reduce((s,d) => s + +d.usage_count, 0);
+  el.innerHTML = `
+    <div class="donut-wrap">
+      <canvas id="donutCanvas" width="220" height="220"></canvas>
+      <div>
+        ${data.map((d,i) => `
+          <div class="pie-legend-item">
+            <div class="pie-dot" style="background:${COLORS[i % COLORS.length]}"></div>
+            <div><strong>${d.project_category}</strong> — ${d.usage_count} uses (${Math.round(+d.usage_count/total*100)}%)</div>
+          </div>`).join('')}
+      </div>
+    </div>
+    <div style="margin-top:24px;">${renderBar(data, 'project_category', 'usage_count')}</div>`;
+
+  // Draw donut
+  requestAnimationFrame(() => {
+    const canvas = document.getElementById('donutCanvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = 110, cy = 110, r = 90, ir = 55;
+    let angle = -Math.PI / 2;
+    data.forEach((d, i) => {
+      const slice = (+d.usage_count / total) * 2 * Math.PI;
+      ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, angle, angle + slice);
+      ctx.fillStyle = COLORS[i % COLORS.length]; ctx.fill();
+      angle += slice;
+    });
+    ctx.beginPath(); ctx.arc(cx, cy, ir, 0, Math.PI * 2);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() || '#faf7f1';
+    ctx.fill();
+    ctx.font = 'bold 22px DM Serif Display'; ctx.fillStyle = '#0d1117';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(total, cx, cy);
+  });
+  el.dataset.loaded = '1';
+}
+
+// ─── TOP TAGS BY PROJECT TYPE ───
+async function loadTopTags() {
+  const el = document.getElementById('top-tags-content');
+  if (el.dataset.loaded) return;
+  el.innerHTML = loading();
+  const data = await get('/api/stats/top-tags-by-project-type').catch(() => ({}));
+  const colors = { 'analytics': 'teal', 'machine learning': 'gold', 'field research': 'rust' };
+
+  if (!data || Object.keys(data).length === 0) {
+    el.innerHTML = `<div class="empty"><div class="emoji">◎</div>No data available.</div>`;
+    return;
+  }
+
+  el.innerHTML = Object.entries(data).map(([cat, tags]) => `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-title">⌗ ${cat.charAt(0).toUpperCase()+cat.slice(1)}</div>
+      <div class="tag-cloud">${tags.map((t,i) => `
+        <span class="tag-pill ${i < 3 ? 'big' : i < 6 ? 'med' : ''}" title="${t.count} uses">
+          ${t.tag} <span style="opacity:0.6;font-size:10px;">(${t.count})</span>
+        </span>`).join('')}
+      </div>
+    </div>`).join('');
+  el.dataset.loaded = '1';
+}
+
+// ─── INIT ───
+checkHealth();
+// Auto-load org types for by-org-type
+loadOrgTypes();
+</script>
+</body>
+</html>
